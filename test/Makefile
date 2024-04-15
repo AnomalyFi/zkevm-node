@@ -565,11 +565,10 @@ stop-approve-pol-v1tov2: ## Stops approve in node container
 	$(STOPV1TOV2APPROVE)
 
 .PHONY: run
-run: ## Runs a full node
+run: ## Runs a full node without running ETH-L1
 	$(RUNSTATEDB)
 	$(RUNPOOLDB)
 	$(RUNEVENTDB)
-	$(RUNL1NETWORK)
 	sleep 1
 	$(RUNZKPROVER)
 	$(RUNAPPROVE)
