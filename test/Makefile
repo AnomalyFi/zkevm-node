@@ -569,6 +569,25 @@ run: ## Runs a full node without running ETH-L1
 	$(RUNSTATEDB)
 	$(RUNPOOLDB)
 	$(RUNEVENTDB)
+	$(RUNL1NETWORK)
+	sleep 1
+	$(RUNZKPROVER)
+	$(RUNAPPROVE)
+	sleep 3
+	$(RUNSYNC)
+	sleep 4
+	$(RUNETHTXMANAGER)
+	$(RUNSEQUENCER)
+	$(RUNSEQUENCESENDER)
+	$(RUNL2GASPRICER)
+	$(RUNAGGREGATOR)
+	$(RUNJSONRPC)
+
+.PHONY: run-without-l1
+run-without-l1:
+	$(RUNSTATEDB)
+	$(RUNPOOLDB)
+	$(RUNEVENTDB)
 	sleep 1
 	$(RUNZKPROVER)
 	$(RUNAPPROVE)
