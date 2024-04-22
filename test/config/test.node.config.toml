@@ -74,6 +74,7 @@ WriteTimeout = "60s"
 MaxRequestsPerIPAndSecond = 5000
 SequencerNodeURI = ""
 EnableL2SuggestedGasPricePolling = true
+NodekitProxyURI = "http://172.17.0.1:9090"
 	[RPC.WebSockets]
 		Enabled = true
 		Port = 8133

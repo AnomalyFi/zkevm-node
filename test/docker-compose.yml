@@ -145,6 +145,8 @@ services:
       - "/bin/sh"
       - "-c"
       - "/app/zkevm-node run --network custom --custom-network-file /app/genesis.json --cfg /app/config.toml --components rpc"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   zkevm-json-rpc-v1tov2:
     container_name: zkevm-json-rpc-v1tov2
