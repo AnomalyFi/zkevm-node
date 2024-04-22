@@ -22,22 +22,20 @@ func NewJSONRPCClient(uri string) *JSONRPCClient {
 }
 
 type SubmitMsgTxArgs struct {
-	RollupID []byte `json:"RollupID"`
-	Data     []byte `json:"Data"`
+	Data []byte `json:"Data"`
 }
 
 type SubmitMsgTxReply struct {
 	TxID string `json:"txId"`
 }
 
-func (j *JSONRPCClient) SubmitMsgTx(ctx context.Context, rollupID []byte, data []byte) (string, error) {
+func (j *JSONRPCClient) SubmitMsgTx(ctx context.Context, data []byte) (string, error) {
 	resp := new(SubmitMsgTxReply)
 
 	err := j.requester.SendRequest(ctx,
 		"submitMsgTx",
 		&SubmitMsgTxArgs{
-			RollupID: rollupID,
-			Data:     data,
+			Data: data,
 		},
 		resp,
 	)
