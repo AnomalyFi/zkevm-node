@@ -65,6 +65,9 @@ type Config struct {
 
 	// ZKCountersLimits defines the ZK Counter limits
 	ZKCountersLimits ZKCountersLimits
+
+	// NodekitProxyURI is the used to pass raw eth transactions to nodekit shared sequencer
+	NodekitProxyURI string `mapstructure:"NodekitProxyURI"`
 }
 
 // ZKCountersLimits defines the ZK Counter limits

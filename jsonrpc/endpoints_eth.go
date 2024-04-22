@@ -15,6 +15,7 @@ import (
 	"github.com/0xPolygonHermez/zkevm-node/jsonrpc/client"
 	"github.com/0xPolygonHermez/zkevm-node/jsonrpc/types"
 	"github.com/0xPolygonHermez/zkevm-node/log"
+	"github.com/0xPolygonHermez/zkevm-node/nodekit"
 	"github.com/0xPolygonHermez/zkevm-node/pool"
 	"github.com/0xPolygonHermez/zkevm-node/state"
 	"github.com/0xPolygonHermez/zkevm-node/state/runtime"
@@ -38,11 +39,16 @@ type EthEndpoints struct {
 	etherman types.EthermanInterface
 	storage  storageInterface
 	txMan    DBTxManager
+
+	// nodekit proxy client
+	proxyClient *nodekit.JSONRPCClient
 }
 
 // NewEthEndpoints creates an new instance of Eth
 func NewEthEndpoints(cfg Config, chainID uint64, p types.PoolInterface, s types.StateInterface, etherman types.EthermanInterface, storage storageInterface) *EthEndpoints {
-	e := &EthEndpoints{cfg: cfg, chainID: chainID, pool: p, state: s, etherman: etherman, storage: storage}
+	proxyClient := nodekit.NewJSONRPCClient(cfg.NodekitProxyURI)
+
+	e := &EthEndpoints{cfg: cfg, chainID: chainID, pool: p, state: s, etherman: etherman, storage: storage, proxyClient: proxyClient}
 	s.RegisterNewL2BlockEventHandler(e.onNewL2Block)
 
 	return e
@@ -938,6 +944,7 @@ func (e *EthEndpoints) newPendingTransactionFilter(wsConn *concurrentWsConn) (in
 // - for Sequencer nodes it tries to add the tx to the pool
 // - for Non-Sequencer nodes it relays the Tx to the Sequencer node
 func (e *EthEndpoints) SendRawTransaction(httpRequest *http.Request, input string) (interface{}, types.Error) {
+
 	if e.cfg.SequencerNodeURI != "" {
 		return e.relayTxToSequencerNode(input)
 	} else {
