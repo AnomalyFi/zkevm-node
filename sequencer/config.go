@@ -30,6 +30,9 @@ type Config struct {
 
 	// StreamServerCfg is the config for the stream server
 	StreamServer StreamServerCfg `mapstructure:"StreamServer"`
+
+	// NodekitProxyURI is the used to pass raw eth transactions to nodekit shared sequencer
+	NodekitProxyURI string `mapstructure:"NodekitProxyURI"`
 }
 
 // StreamServerCfg contains the data streamer's configuration properties

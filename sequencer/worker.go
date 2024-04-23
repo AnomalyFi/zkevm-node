@@ -348,6 +348,46 @@ func (w *Worker) GetBestFittingTx(resources state.BatchResources) (*TxTracker, e
 	}
 }
 
+func (w *Worker) GetTxsAndCheckIfFit(resources state.BatchResources) ([]*TxTracker, error) {
+	w.workerMutex.Lock()
+	defer w.workerMutex.Unlock()
+
+	log.Debugf("#Txs left in txSortedList: %d\n", w.txSortedList.len())
+
+	if w.txSortedList.len() == 0 {
+		return nil, ErrTransactionsListEmpty
+	}
+
+	var (
+		resourcesNeededMutex sync.Mutex
+		resourcesNeeded      state.BatchResources
+	)
+
+	nGoRoutines := runtime.NumCPU()
+	wg := sync.WaitGroup{}
+	wg.Add(nGoRoutines)
+	for i := 0; i < nGoRoutines; i++ {
+		go func(n int) {
+			defer wg.Done()
+			for i := n; i < w.txSortedList.len(); i += nGoRoutines {
+				txCandidate := w.txSortedList.getByIndex(i)
+				resourcesNeededMutex.Lock()
+				resourcesNeeded.ZKCounters.SumUp(txCandidate.ReservedZKCounters)
+				resourcesNeeded.Bytes += txCandidate.Bytes
+				resourcesNeededMutex.Unlock()
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	if fits, overflow := resources.Fits(resourcesNeeded); fits {
+		return w.txSortedList.sorted, nil
+	} else {
+		log.Debugf("resources needed overflowed at %s\n", overflow)
+		return nil, ErrBatchResourceOverFlow
+	}
+}
+
 // ExpireTransactions deletes old txs
 func (w *Worker) ExpireTransactions(maxTime time.Duration) []*TxTracker {
 	w.workerMutex.Lock()
@@ -375,10 +415,16 @@ func (w *Worker) ExpireTransactions(maxTime time.Duration) []*TxTracker {
 
 func (w *Worker) addTxToSortedList(readyTx *TxTracker) {
 	w.txSortedList.add(readyTx)
-	if w.txSortedList.len() == 1 {
-		// The txSortedList was empty before to add the new tx, we notify finalizer that we have new ready txs to process
-		w.readyTxsCond.L.Lock()
-		w.readyTxsCond.Signal()
-		w.readyTxsCond.L.Unlock()
-	}
+	// if w.txSortedList.len() == 1 {
+	// 	// The txSortedList was empty before to add the new tx, we notify finalizer that we have new ready txs to process
+	// 	w.readyTxsCond.L.Lock()
+	// 	w.readyTxsCond.Signal()
+	// 	w.readyTxsCond.L.Unlock()
+	// }
+}
+
+func (w *Worker) signalFinalizerToFetchTxs() {
+	w.readyTxsCond.L.Lock()
+	w.readyTxsCond.Signal()
+	w.readyTxsCond.L.Unlock()
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/0xPolygonHermez/zkevm-data-streamer/datastreamer"
 	"github.com/0xPolygonHermez/zkevm-node/event"
 	"github.com/0xPolygonHermez/zkevm-node/log"
+	"github.com/0xPolygonHermez/zkevm-node/nodekit"
 	"github.com/0xPolygonHermez/zkevm-node/pool"
 	"github.com/0xPolygonHermez/zkevm-node/state"
 	"github.com/ethereum/go-ethereum/common"
@@ -24,12 +25,13 @@ type Sequencer struct {
 	batchCfg state.BatchConfig
 	poolCfg  pool.Config
 
-	pool      txPool
-	stateIntf stateInterface
-	eventLog  *event.EventLog
-	etherman  etherman
-	worker    *Worker
-	finalizer *finalizer
+	pool        txPool
+	stateIntf   stateInterface
+	eventLog    *event.EventLog
+	etherman    etherman
+	worker      *Worker
+	finalizer   *finalizer
+	proxyClient *nodekit.JSONRPCClient
 
 	workerReadyTxsCond *timeoutCond
 
@@ -48,15 +50,18 @@ func New(cfg Config, batchCfg state.BatchConfig, poolCfg pool.Config, txPool txP
 		return nil, fmt.Errorf("failed to get trusted sequencer address, error: %v", err)
 	}
 
+	proxyClient := nodekit.NewJSONRPCClient(cfg.NodekitProxyURI)
+
 	sequencer := &Sequencer{
-		cfg:       cfg,
-		batchCfg:  batchCfg,
-		poolCfg:   poolCfg,
-		pool:      txPool,
-		stateIntf: stateIntf,
-		etherman:  etherman,
-		address:   addr,
-		eventLog:  eventLog,
+		cfg:         cfg,
+		batchCfg:    batchCfg,
+		poolCfg:     poolCfg,
+		pool:        txPool,
+		stateIntf:   stateIntf,
+		etherman:    etherman,
+		address:     addr,
+		eventLog:    eventLog,
+		proxyClient: proxyClient,
 	}
 
 	// TODO: Make configurable
@@ -93,7 +98,8 @@ func (s *Sequencer) Start(ctx context.Context) {
 		s.updateDataStreamerFile(ctx, s.cfg.StreamServer.ChainID)
 	}
 
-	go s.loadFromPool(ctx)
+	// go s.loadFromPool(ctx)
+	go s.loadFromNodekitSeq(ctx)
 
 	if s.streamServer != nil {
 		go s.sendDataToStreamer(s.cfg.StreamServer.ChainID)
@@ -104,6 +110,7 @@ func (s *Sequencer) Start(ctx context.Context) {
 	s.finalizer = newFinalizer(s.cfg.Finalizer, s.poolCfg, s.worker, s.pool, s.stateIntf, s.etherman, s.address, s.isSynced, s.batchCfg.Constraints, s.eventLog, s.streamServer, s.workerReadyTxsCond, s.dataToStream)
 	go s.finalizer.Start(ctx)
 
+	// TODO: need to test consistency of the following two function with the new nodekit protocol
 	go s.deleteOldPoolTxs(ctx)
 
 	go s.expireOldWorkerTxs(ctx)
@@ -189,6 +196,35 @@ func (s *Sequencer) expireOldWorkerTxs(ctx context.Context) {
 				log.Errorf("failed to update tx status, error: %v", err)
 			}
 		}
+	}
+}
+
+func (s *Sequencer) loadFromNodekitSeq(ctx context.Context) {
+	for {
+		rollupBlock, err := s.proxyClient.ConsumeBlock(ctx)
+		if err != nil {
+			log.Errorf("err consuming nodekit seq block, error: %+v\n", err)
+			continue
+		}
+		// populate txs fields
+		rollupBlock.UnmarshalTxs()
+
+		txs := rollupBlock.GetTxs()
+		for _, tx := range txs {
+			txHash := tx.Hash()
+			poolTx, err := s.pool.GetTransactionByHash(ctx, txHash)
+			if err != nil {
+				log.Errorf("unable to fetch tx from pool, txHash: %s, err: %+v\n", txHash, err)
+				continue
+			}
+			err = s.addTxToWorker(ctx, *poolTx)
+			if err != nil {
+				log.Errorf("error adding transaction to worker, err: %+v\n", err)
+			}
+		}
+
+		// signal finalizer to fetch txs then produce a L2Block
+		s.worker.signalFinalizerToFetchTxs()
 	}
 }
 

@@ -312,56 +312,98 @@ func (f *finalizer) finalizeBatches(ctx context.Context) {
 	showNotFoundTxLog := true // used to log debug only the first message when there is no txs to process
 	for {
 		// We have reached the L2 block time, we need to close the current L2 block and open a new one
+		// This should only happen when there is no tx included, we forced to produce a block
 		if f.wipL2Block.timestamp+uint64(f.cfg.L2BlockMaxDeltaTimestamp.Seconds()) <= uint64(time.Now().Unix()) {
 			f.finalizeWIPL2Block(ctx)
 		}
 
-		tx, err := f.workerIntf.GetBestFittingTx(f.wipBatch.imRemainingResources)
-
-		// If we have txs pending to process but none of them fits into the wip batch, we close the wip batch and open a new one
-		if err == ErrNoFittingTransaction {
+		txs, err := f.workerIntf.GetTxsAndCheckIfFit(f.wipBatch.imRemainingResources)
+		if err == ErrBatchResourceOverFlow {
 			f.finalizeWIPBatch(ctx, state.NoTxFitsClosingReason)
+			continue
+		} else if err == ErrTransactionsListEmpty { // wait txs to be filled
+			log.Info("zero txs found, waiting...")
+			idleTime := time.Now()
+			if showNotFoundTxLog {
+				log.Debug("no transactino to be processed, waiting")
+				f.workerReadyTxsCond.L.Lock()
+				f.workerReadyTxsCond.WaitOrTimeout(f.cfg.NewTxsWaitInterval.Duration)
+				f.workerReadyTxsCond.L.Unlock()
+			}
+			f.wipL2Block.metrics.idleTime += time.Since(idleTime)
 			continue
 		}
 
-		if tx != nil {
-			showNotFoundTxLog = true
-
-			firstTxProcess := true
-
-			for {
-				_, err := f.processTransaction(ctx, tx, firstTxProcess)
-				if err != nil {
-					if err == ErrEffectiveGasPriceReprocess {
-						firstTxProcess = false
-						log.Infof("reprocessing tx %s because of effective gas price calculation", tx.HashStr)
-						continue
-					} else if err == ErrBatchResourceOverFlow {
-						log.Infof("skipping tx %s due to a batch resource overflow", tx.HashStr)
-						break
-					} else {
-						log.Errorf("failed to process tx %s, error: %v", err)
-						break
-					}
+		i := 0
+		firstTxProcess := true
+		for i < len(txs) {
+			tx := txs[i]
+			_, err := f.processTransaction(ctx, tx, firstTxProcess)
+			if err != nil {
+				if err == ErrEffectiveGasPriceReprocess {
+					firstTxProcess = false
+					log.Infof("reprocessing tx %s because of effective gas price calculation", tx.HashStr)
+					continue
+				} else if err == ErrBatchResourceOverFlow {
+					// this should never happen since we evaluated the cost before processing tx
+					log.Infof("skipping tx %s due to a batch resource overflow", tx.HashStr)
+				} else {
+					log.Errorf("failed to process tx %s, error: %v", err)
 				}
-				break
-			}
-		} else {
-			idleTime := time.Now()
-
-			if showNotFoundTxLog {
-				log.Debug("no transactions to be processed. Waiting...")
-				showNotFoundTxLog = false
 			}
 
-			// wait for new ready txs in worker
-			f.workerReadyTxsCond.L.Lock()
-			f.workerReadyTxsCond.WaitOrTimeout(f.cfg.NewTxsWaitInterval.Duration)
-			f.workerReadyTxsCond.L.Unlock()
-
-			// Increase idle time of the WIP L2Block
-			f.wipL2Block.metrics.idleTime += time.Since(idleTime)
+			i++
 		}
+
+		// finalize L2Block every time we've processed all the txs fetched from worker, per block per seq block
+		f.finalizeWIPL2Block(ctx)
+
+		// tx, err := f.workerIntf.GetBestFittingTx(f.wipBatch.imRemainingResources)
+
+		// // If we have txs pending to process but none of them fits into the wip batch, we close the wip batch and open a new one
+		// if err == ErrNoFittingTransaction {
+		// 	f.finalizeWIPBatch(ctx, state.NoTxFitsClosingReason)
+		// 	continue
+		// }
+
+		// if tx != nil {
+		// 	showNotFoundTxLog = true
+
+		// 	firstTxProcess := true
+
+		// 	for {
+		// 		_, err := f.processTransaction(ctx, tx, firstTxProcess)
+		// 		if err != nil {
+		// 			if err == ErrEffectiveGasPriceReprocess {
+		// 				firstTxProcess = false
+		// 				log.Infof("reprocessing tx %s because of effective gas price calculation", tx.HashStr)
+		// 				continue
+		// 			} else if err == ErrBatchResourceOverFlow {
+		// 				log.Infof("skipping tx %s due to a batch resource overflow", tx.HashStr)
+		// 				break
+		// 			} else {
+		// 				log.Errorf("failed to process tx %s, error: %v", err)
+		// 				break
+		// 			}
+		// 		}
+		// 		break
+		// 	}
+		// } else {
+		// 	idleTime := time.Now()
+
+		// 	if showNotFoundTxLog {
+		// 		log.Debug("no transactions to be processed. Waiting...")
+		// 		showNotFoundTxLog = false
+		// 	}
+
+		// 	// wait for new ready txs in worker
+		// 	f.workerReadyTxsCond.L.Lock()
+		// 	f.workerReadyTxsCond.WaitOrTimeout(f.cfg.NewTxsWaitInterval.Duration)
+		// 	f.workerReadyTxsCond.L.Unlock()
+
+		// 	// Increase idle time of the WIP L2Block
+		// 	f.wipL2Block.metrics.idleTime += time.Since(idleTime)
+		// }
 
 		if f.haltFinalizer.Load() {
 			// There is a fatal error and we need to halt the finalizer and stop processing new txs

@@ -380,6 +380,10 @@ func (p *Pool) UpdateTxStatus(ctx context.Context, hash common.Hash, newStatus T
 	})
 }
 
+func (p *Pool) GetTransactionByHash(ctx context.Context, hash common.Hash) (*Transaction, error) {
+	return p.storage.GetTransactionByHash(ctx, hash)
+}
+
 // SetGasPrices sets the current L2 Gas Price and L1 Gas Price
 func (p *Pool) SetGasPrices(ctx context.Context, l2GasPrice uint64, l1GasPrice uint64) error {
 	return p.storage.SetGasPrices(ctx, l2GasPrice, l1GasPrice)
