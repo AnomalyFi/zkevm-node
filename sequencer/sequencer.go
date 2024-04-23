@@ -222,6 +222,7 @@ func (s *Sequencer) loadFromNodekitSeq(ctx context.Context) {
 				log.Errorf("error adding transaction to worker, err: %+v\n", err)
 			}
 		}
+		time.Sleep(500 * time.Millisecond)
 
 		// signal finalizer to fetch txs then produce a L2Block
 		s.worker.signalFinalizerToFetchTxs()

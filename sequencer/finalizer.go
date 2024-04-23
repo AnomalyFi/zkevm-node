@@ -314,6 +314,7 @@ func (f *finalizer) finalizeBatches(ctx context.Context) {
 		// We have reached the L2 block time, we need to close the current L2 block and open a new one
 		// This should only happen when there is no tx included, we forced to produce a block
 		if f.wipL2Block.timestamp+uint64(f.cfg.L2BlockMaxDeltaTimestamp.Seconds()) <= uint64(time.Now().Unix()) {
+			log.Debug("producing block on timeout")
 			f.finalizeWIPL2Block(ctx)
 		}
 
@@ -355,6 +356,7 @@ func (f *finalizer) finalizeBatches(ctx context.Context) {
 			i++
 		}
 
+		log.Debug("producing block on receiving block from nodekit-seq")
 		// finalize L2Block every time we've processed all the txs fetched from worker, per block per seq block
 		f.finalizeWIPL2Block(ctx)
 
