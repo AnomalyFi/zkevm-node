@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -943,12 +944,28 @@ func (e *EthEndpoints) newPendingTransactionFilter(wsConn *concurrentWsConn) (in
 // - for Sequencer nodes it tries to add the tx to the pool
 // - for Non-Sequencer nodes it relays the Tx to the Sequencer node
 func (e *EthEndpoints) SendRawTransaction(httpRequest *http.Request, input string) (interface{}, types.Error) {
-	txID, err := e.proxyClient.SubmitMsgTx(context.TODO(), []byte(input))
+	ip := ""
+	ips := httpRequest.Header.Get("X-Forwarded-For")
+
+	// TODO: this is temporary patch remove this log
+	realIp := httpRequest.Header.Get("X-Real-IP")
+	log.Debugf("X-Forwarded-For: %s, X-Real-IP: %s", ips, realIp)
+
+	if ips != "" {
+		ip = strings.Split(ips, ",")[0]
+	}
+	txHash, err := e.tryToAddTxToPool(input, ip)
 	if err != nil {
-		return RPCErrorResponse(406, err.Error(), err, true)
+		return nil, err
 	}
 
-	return json.RawMessage(txID), nil
+	_, err1 := e.proxyClient.SubmitMsgTx(context.TODO(), []byte(input))
+	if err1 != nil {
+		// TOOD: remove pool directly rather than waiting it removed by expiring calls
+		return RPCErrorResponse(406, err1.Error(), err, true)
+	}
+
+	return txHash, nil
 }
 
 // func (e *EthEndpoints) relayTxToSequencerNode(input string) (interface{}, types.Error) {
@@ -966,21 +983,21 @@ func (e *EthEndpoints) SendRawTransaction(httpRequest *http.Request, input strin
 // 	return txHash, nil
 // }
 
-// func (e *EthEndpoints) tryToAddTxToPool(input, ip string) (interface{}, types.Error) {
-// 	tx, err := hexToTx(input)
-// 	if err != nil {
-// 		return RPCErrorResponse(types.InvalidParamsErrorCode, "invalid tx input", err, false)
-// 	}
-// 	log.Infof("adding TX to the pool: %v", tx.Hash().Hex())
-// 	if err := e.pool.AddTx(context.Background(), *tx, ip); err != nil {
-// 		// it's not needed to log the error here, because we check and log if needed
-// 		// for each specific case during the "pool.AddTx" internal steps
-// 		return RPCErrorResponse(types.DefaultErrorCode, err.Error(), nil, false)
-// 	}
-// 	log.Infof("TX added to the pool: %v", tx.Hash().Hex())
+func (e *EthEndpoints) tryToAddTxToPool(input, ip string) (interface{}, types.Error) {
+	tx, err := hexToTx(input)
+	if err != nil {
+		return RPCErrorResponse(types.InvalidParamsErrorCode, "invalid tx input", err, false)
+	}
+	log.Infof("adding TX to the pool: %v", tx.Hash().Hex())
+	if err := e.pool.AddTx(context.Background(), *tx, ip); err != nil {
+		// it's not needed to log the error here, because we check and log if needed
+		// for each specific case during the "pool.AddTx" internal steps
+		return RPCErrorResponse(types.DefaultErrorCode, err.Error(), nil, false)
+	}
+	log.Infof("TX added to the pool: %v", tx.Hash().Hex())
 
-// 	return tx.Hash().Hex(), nil
-// }
+	return tx.Hash().Hex(), nil
+}
 
 // UninstallFilter uninstalls a filter with given id.
 func (e *EthEndpoints) UninstallFilter(filterID string) (interface{}, types.Error) {
