@@ -41,6 +41,7 @@ func newAddrQueue(addr common.Address, nonce uint64, balance *big.Int) *addrQueu
 // the existing tx with lower gasPrice (the replacedTx will be later set as failed in the pool).
 // If the existing tx has better gasPrice then we will drop the new tx (dropReason = ErrDuplicatedNonce)
 func (a *addrQueue) addTx(tx *TxTracker) (newReadyTx, prevReadyTx, replacedTx *TxTracker, dropReason error) {
+	log.Debugf("addr nonce: %d; tx nonce: %d\n", a.currentNonce, tx.Nonce)
 	var repTx *TxTracker
 
 	if a.currentNonce == tx.Nonce { // Is a possible readyTx

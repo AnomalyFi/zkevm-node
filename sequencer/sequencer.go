@@ -208,13 +208,14 @@ func (s *Sequencer) loadFromNodekitSeq(ctx context.Context) {
 		}
 		// populate txs fields
 		rollupBlock.UnmarshalTxs()
+		log.Debugf("#of tx found in nodekit-seq block, num: %d\n", len(rollupBlock.Txs))
 
 		txs := rollupBlock.GetTxs()
 		for _, tx := range txs {
 			txHash := tx.Hash()
 			poolTx, err := s.pool.GetTransactionByHash(ctx, txHash)
 			if err != nil {
-				log.Errorf("unable to fetch tx from pool, txHash: %s, err: %+v\n", txHash, err)
+				log.Errorf("unable to fetch tx from pool, txHash: %s, err: %+v\n", txHash.String(), err)
 				continue
 			}
 			err = s.addTxToWorker(ctx, *poolTx)
@@ -222,7 +223,7 @@ func (s *Sequencer) loadFromNodekitSeq(ctx context.Context) {
 				log.Errorf("error adding transaction to worker, err: %+v\n", err)
 			}
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 
 		// signal finalizer to fetch txs then produce a L2Block
 		s.worker.signalFinalizerToFetchTxs()

@@ -958,6 +958,7 @@ func (e *EthEndpoints) SendRawTransaction(httpRequest *http.Request, input strin
 	if err != nil {
 		return nil, err
 	}
+	log.Debugf("tx added to pool, txHash: %s\n", txHash)
 
 	_, err1 := e.proxyClient.SubmitMsgTx(context.TODO(), []byte(input))
 	if err1 != nil {
