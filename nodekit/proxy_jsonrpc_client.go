@@ -46,24 +46,3 @@ func (j *JSONRPCClient) SubmitMsgTx(ctx context.Context, data []byte) (string, e
 
 	return resp.TxID, nil
 }
-
-type ConsumeBlockArgs struct{}
-type ConsumeBlockReply struct {
-	Block RollupBlock `json:"block"`
-}
-
-func (j *JSONRPCClient) ConsumeBlock(ctx context.Context) (*RollupBlock, error) {
-	resp := new(ConsumeBlockReply)
-
-	err := j.requester.SendRequest(ctx,
-		"consumeBlock",
-		&ConsumeBlockArgs{},
-		resp,
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &resp.Block, nil
-}

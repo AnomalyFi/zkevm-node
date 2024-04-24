@@ -25,13 +25,14 @@ type Sequencer struct {
 	batchCfg state.BatchConfig
 	poolCfg  pool.Config
 
-	pool        txPool
-	stateIntf   stateInterface
-	eventLog    *event.EventLog
-	etherman    etherman
-	worker      *Worker
-	finalizer   *finalizer
-	proxyClient *nodekit.JSONRPCClient
+	pool           txPool
+	stateIntf      stateInterface
+	eventLog       *event.EventLog
+	etherman       etherman
+	worker         *Worker
+	finalizer      *finalizer
+	proxyRPCClient *nodekit.JSONRPCClient
+	proxyWSClient  *nodekit.WSClient
 
 	workerReadyTxsCond *timeoutCond
 
@@ -50,18 +51,30 @@ func New(cfg Config, batchCfg state.BatchConfig, poolCfg pool.Config, txPool txP
 		return nil, fmt.Errorf("failed to get trusted sequencer address, error: %v", err)
 	}
 
-	proxyClient := nodekit.NewJSONRPCClient(cfg.NodekitProxyURI)
+	httpURL := "http://" + cfg.NodekitProxyURI
+	wsURL := "ws://" + cfg.NodekitProxyURI + "/ws"
+
+	proxyRPCClient := nodekit.NewJSONRPCClient(httpURL)
+	proxyWSClient, err := nodekit.NewWSClient(wsURL)
+	if err != nil {
+		return nil, err
+	}
+	err = proxyWSClient.SubscribeBlock()
+	if err != nil {
+		return nil, err
+	}
 
 	sequencer := &Sequencer{
-		cfg:         cfg,
-		batchCfg:    batchCfg,
-		poolCfg:     poolCfg,
-		pool:        txPool,
-		stateIntf:   stateIntf,
-		etherman:    etherman,
-		address:     addr,
-		eventLog:    eventLog,
-		proxyClient: proxyClient,
+		cfg:            cfg,
+		batchCfg:       batchCfg,
+		poolCfg:        poolCfg,
+		pool:           txPool,
+		stateIntf:      stateIntf,
+		etherman:       etherman,
+		address:        addr,
+		eventLog:       eventLog,
+		proxyRPCClient: proxyRPCClient,
+		proxyWSClient:  proxyWSClient,
 	}
 
 	// TODO: Make configurable
@@ -201,7 +214,8 @@ func (s *Sequencer) expireOldWorkerTxs(ctx context.Context) {
 
 func (s *Sequencer) loadFromNodekitSeq(ctx context.Context) {
 	for {
-		rollupBlock, err := s.proxyClient.ConsumeBlock(ctx)
+		sctx, _ := context.WithTimeout(ctx, 5*time.Second)
+		rollupBlock, err := s.proxyWSClient.ListenBlock(sctx)
 		if err != nil {
 			log.Errorf("err consuming nodekit seq block, error: %+v\n", err)
 			continue
@@ -223,7 +237,6 @@ func (s *Sequencer) loadFromNodekitSeq(ctx context.Context) {
 				log.Errorf("error adding transaction to worker, err: %+v\n", err)
 			}
 		}
-		time.Sleep(1 * time.Second)
 
 		// signal finalizer to fetch txs then produce a L2Block
 		s.worker.signalFinalizerToFetchTxs()
