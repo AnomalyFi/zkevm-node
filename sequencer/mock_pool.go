@@ -209,6 +209,36 @@ func (_m *PoolMock) GetNonWIPPendingTxs(ctx context.Context) ([]pool.Transaction
 	return r0, r1
 }
 
+// GetTransactionByHash provides a mock function with given fields: ctx, hash
+func (_m *PoolMock) GetTransactionByHash(ctx context.Context, hash common.Hash) (*pool.Transaction, error) {
+	ret := _m.Called(ctx, hash)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetTransactionByHash")
+	}
+
+	var r0 *pool.Transaction
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) (*pool.Transaction, error)); ok {
+		return rf(ctx, hash)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, common.Hash) *pool.Transaction); ok {
+		r0 = rf(ctx, hash)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*pool.Transaction)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, common.Hash) error); ok {
+		r1 = rf(ctx, hash)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetTxZkCountersByHash provides a mock function with given fields: ctx, hash
 func (_m *PoolMock) GetTxZkCountersByHash(ctx context.Context, hash common.Hash) (*state.ZKCounters, *state.ZKCounters, error) {
 	ret := _m.Called(ctx, hash)

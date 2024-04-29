@@ -105,6 +105,36 @@ func (_m *WorkerMock) GetBestFittingTx(resources state.BatchResources) (*TxTrack
 	return r0, r1
 }
 
+// GetTxsAndCheckIfFit provides a mock function with given fields: resources
+func (_m *WorkerMock) GetTxsAndCheckIfFit(resources state.BatchResources) ([]*TxTracker, error) {
+	ret := _m.Called(resources)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetTxsAndCheckIfFit")
+	}
+
+	var r0 []*TxTracker
+	var r1 error
+	if rf, ok := ret.Get(0).(func(state.BatchResources) ([]*TxTracker, error)); ok {
+		return rf(resources)
+	}
+	if rf, ok := ret.Get(0).(func(state.BatchResources) []*TxTracker); ok {
+		r0 = rf(resources)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*TxTracker)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(state.BatchResources) error); ok {
+		r1 = rf(resources)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // MoveTxToNotReady provides a mock function with given fields: txHash, from, actualNonce, actualBalance
 func (_m *WorkerMock) MoveTxToNotReady(txHash common.Hash, from common.Address, actualNonce *uint64, actualBalance *big.Int) []*TxTracker {
 	ret := _m.Called(txHash, from, actualNonce, actualBalance)
