@@ -680,6 +680,7 @@ generate-mocks-jsonrpc: ## Generates mocks for jsonrpc , using mockery tool
 	export "GOROOT=$$(go env GOROOT)" && $$(go env GOPATH)/bin/mockery --name=StateInterface --dir=../jsonrpc/types --output=../jsonrpc/mocks --outpkg=mocks --structname=StateMock --filename=mock_state.go
 	export "GOROOT=$$(go env GOROOT)" && $$(go env GOPATH)/bin/mockery --name=EthermanInterface --dir=../jsonrpc/types --output=../jsonrpc/mocks --outpkg=mocks --structname=EthermanMock --filename=mock_etherman.go
 	export "GOROOT=$$(go env GOROOT)" && $$(go env GOPATH)/bin/mockery --name=Tx --srcpkg=github.com/jackc/pgx/v4 --output=../jsonrpc/mocks --outpkg=mocks --structname=DBTxMock --filename=mock_dbtx.go
+	export "GOROOT=$$(go env GOROOT)" && $$(go env GOPATH)/bin/mockery --name=NodekitProxyInterface --dir=../jsonrpc/types --output=../jsonrpc/mocks --outpkg=mocks --structname=NodekitProxyMock --filename=mock_nodekit_proxy.go
 
 .PHONY: generate-mocks-sequencer
 generate-mocks-sequencer: ## Generates mocks for sequencer , using mockery tool

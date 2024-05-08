@@ -15,7 +15,6 @@ import (
 	"github.com/0xPolygonHermez/zkevm-node/jsonrpc/client"
 	"github.com/0xPolygonHermez/zkevm-node/jsonrpc/types"
 	"github.com/0xPolygonHermez/zkevm-node/log"
-	"github.com/0xPolygonHermez/zkevm-node/nodekit"
 	"github.com/0xPolygonHermez/zkevm-node/pool"
 	"github.com/0xPolygonHermez/zkevm-node/state"
 	"github.com/0xPolygonHermez/zkevm-node/state/runtime"
@@ -41,14 +40,12 @@ type EthEndpoints struct {
 	txMan    DBTxManager
 
 	// nodekit proxy client
-	proxyClient *nodekit.JSONRPCClient
+	proxyClient types.NodekitProxyInterface
 }
 
 // NewEthEndpoints creates an new instance of Eth
-func NewEthEndpoints(cfg Config, chainID uint64, p types.PoolInterface, s types.StateInterface, etherman types.EthermanInterface, storage storageInterface) *EthEndpoints {
-	proxyClient := nodekit.NewJSONRPCClient(cfg.NodekitProxyURI)
-
-	e := &EthEndpoints{cfg: cfg, chainID: chainID, pool: p, state: s, etherman: etherman, storage: storage, proxyClient: proxyClient}
+func NewEthEndpoints(cfg Config, chainID uint64, p types.PoolInterface, s types.StateInterface, etherman types.EthermanInterface, storage storageInterface, nodekitProxy types.NodekitProxyInterface) *EthEndpoints {
+	e := &EthEndpoints{cfg: cfg, chainID: chainID, pool: p, state: s, etherman: etherman, storage: storage, proxyClient: nodekitProxy}
 	s.RegisterNewL2BlockEventHandler(e.onNewL2Block)
 
 	return e

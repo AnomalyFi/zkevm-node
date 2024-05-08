@@ -84,3 +84,7 @@ type EthermanInterface interface {
 	GetSafeBlockNumber(ctx context.Context) (uint64, error)
 	GetFinalizedBlockNumber(ctx context.Context) (uint64, error)
 }
+
+type NodekitProxyInterface interface {
+	SubmitMsgTx(ctx context.Context, data []byte) (string, error)
+}
