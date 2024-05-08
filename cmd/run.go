@@ -28,6 +28,7 @@ import (
 	"github.com/0xPolygonHermez/zkevm-node/log"
 	"github.com/0xPolygonHermez/zkevm-node/merkletree"
 	"github.com/0xPolygonHermez/zkevm-node/metrics"
+	"github.com/0xPolygonHermez/zkevm-node/nodekit"
 	"github.com/0xPolygonHermez/zkevm-node/pool"
 	"github.com/0xPolygonHermez/zkevm-node/pool/pgpoolstorage"
 	"github.com/0xPolygonHermez/zkevm-node/sequencer"
@@ -344,6 +345,7 @@ func runSynchronizer(cfg config.Config, etherman *etherman.Client, ethTxManagerS
 func runJSONRPCServer(c config.Config, etherman *etherman.Client, chainID uint64, pool *pool.Pool, st *state.State, apis map[string]bool) {
 	var err error
 	storage := jsonrpc.NewStorage()
+	nodekitProxy := nodekit.NewJSONRPCClient(c.RPC.NodekitProxyURI)
 	c.RPC.MaxCumulativeGasUsed = c.State.Batch.Constraints.MaxCumulativeGasUsed
 	c.RPC.L2Coinbase = c.SequenceSender.L2Coinbase
 	c.RPC.ZKCountersLimits = jsonrpc.ZKCountersLimits{
@@ -371,7 +373,7 @@ func runJSONRPCServer(c config.Config, etherman *etherman.Client, chainID uint64
 	if _, ok := apis[jsonrpc.APIEth]; ok {
 		services = append(services, jsonrpc.Service{
 			Name:    jsonrpc.APIEth,
-			Service: jsonrpc.NewEthEndpoints(c.RPC, chainID, pool, st, etherman, storage),
+			Service: jsonrpc.NewEthEndpoints(c.RPC, chainID, pool, st, etherman, storage, nodekitProxy),
 		})
 	}
 
