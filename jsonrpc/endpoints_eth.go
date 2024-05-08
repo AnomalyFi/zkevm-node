@@ -986,7 +986,7 @@ func (e *EthEndpoints) tryToAddTxToPool(input, ip string) (interface{}, types.Er
 	if err != nil {
 		return RPCErrorResponse(types.InvalidParamsErrorCode, "invalid tx input", err, false)
 	}
-	log.Infof("adding TX to the pool: %v", tx.Hash().Hex())
+	log.Infof("adding TX to the pool: %v, ip: %s\n", tx.Hash().Hex(), ip)
 	if err := e.pool.AddTx(context.Background(), *tx, ip); err != nil {
 		// it's not needed to log the error here, because we check and log if needed
 		// for each specific case during the "pool.AddTx" internal steps

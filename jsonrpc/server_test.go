@@ -38,11 +38,12 @@ type mockedServer struct {
 }
 
 type mocksWrapper struct {
-	Pool     *mocks.PoolMock
-	State    *mocks.StateMock
-	Etherman *mocks.EthermanMock
-	Storage  *storageMock
-	DbTx     *mocks.DBTxMock
+	Pool         *mocks.PoolMock
+	State        *mocks.StateMock
+	Etherman     *mocks.EthermanMock
+	Storage      *storageMock
+	DbTx         *mocks.DBTxMock
+	NodekitProxy *mocks.NodekitProxyMock
 }
 
 func newMockedServer(t *testing.T, cfg Config) (*mockedServer, *mocksWrapper, *ethclient.Client) {
@@ -51,6 +52,7 @@ func newMockedServer(t *testing.T, cfg Config) (*mockedServer, *mocksWrapper, *e
 	etherman := mocks.NewEthermanMock(t)
 	storage := newStorageMock(t)
 	dbTx := mocks.NewDBTxMock(t)
+	nodekitProxy := mocks.NewNodekitProxyMock(t)
 	apis := map[string]bool{
 		APIEth:    true,
 		APINet:    true,
@@ -68,7 +70,7 @@ func newMockedServer(t *testing.T, cfg Config) (*mockedServer, *mocksWrapper, *e
 	if _, ok := apis[APIEth]; ok {
 		services = append(services, Service{
 			Name:    APIEth,
-			Service: NewEthEndpoints(cfg, chainID, pool, st, etherman, storage),
+			Service: NewEthEndpoints(cfg, chainID, pool, st, etherman, storage, nodekitProxy),
 		})
 	}
 
@@ -139,11 +141,12 @@ func newMockedServer(t *testing.T, cfg Config) (*mockedServer, *mocksWrapper, *e
 	}
 
 	mks := &mocksWrapper{
-		Pool:     pool,
-		State:    st,
-		Etherman: etherman,
-		Storage:  storage,
-		DbTx:     dbTx,
+		Pool:         pool,
+		State:        st,
+		Etherman:     etherman,
+		Storage:      storage,
+		DbTx:         dbTx,
+		NodekitProxy: nodekitProxy,
 	}
 
 	return msv, mks, ethClient
